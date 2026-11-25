@@ -23,7 +23,9 @@ class TodoService:
 
     def create_todo(self, data: TodoCreate) -> Todo:
         # 새 할 일은 항상 미완료로 시작한다 (FR-01)
-        return self._repo.add(text=data.text, priority=data.priority, today=data.today)
+        return self._repo.add(
+            text=data.text, priority=data.priority, today=data.today, due_date=data.due_date
+        )
 
     def update_todo(self, todo_id: UUID, data: TodoUpdate) -> Todo:
         updated = self._repo.update(todo_id, data.changes())

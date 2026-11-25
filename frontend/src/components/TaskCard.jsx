@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { PRIORITIES } from '../constants.js'
 import ClearButton from './ClearButton.jsx'
+import DueBadge from './DueBadge.jsx'
+import DueDateField from './DueDateField.jsx'
 import PriorityBadge from './PriorityBadge.jsx'
 
-// 작업 카드: 완료 체크, 내용, 우선순위 배지, 오늘 표시, 수정/삭제
+// 작업 카드: 완료 체크, 내용, 우선순위 배지, 오늘 표시, 마감일, 수정/삭제
 // busy: 이 작업의 서버 요청이 진행 중. 포커스를 잃지 않도록 disabled 대신
 // aria-disabled로 표시하고 조작을 무시한다.
 export default function TaskCard({ todo, busy = false, onToggle, onUpdate, onDelete }) {
@@ -11,6 +13,7 @@ export default function TaskCard({ todo, busy = false, onToggle, onUpdate, onDel
   const [draft, setDraft] = useState(todo.text)
   const [draftPriority, setDraftPriority] = useState(todo.priority)
   const [draftToday, setDraftToday] = useState(todo.today)
+  const [draftDue, setDraftDue] = useState(todo.dueDate ?? '') // '' = 마감일 없음
   const editRef = useRef(null)
   const editBtnRef = useRef(null)
   const returnFocus = useRef(false)
@@ -27,6 +30,7 @@ export default function TaskCard({ todo, busy = false, onToggle, onUpdate, onDel
     setDraft(todo.text)
     setDraftPriority(todo.priority)
     setDraftToday(todo.today)
+    setDraftDue(todo.dueDate ?? '')
     setIsEditing(true)
   }
 
@@ -34,7 +38,12 @@ export default function TaskCard({ todo, busy = false, onToggle, onUpdate, onDel
   const save = async () => {
     const text = draft.trim()
     if (!text || busy) return
-    const ok = await onUpdate(todo.id, { text, priority: draftPriority, today: draftToday })
+    const ok = await onUpdate(todo.id, {
+      text,
+      priority: draftPriority,
+      today: draftToday,
+      dueDate: draftDue || null, // 비우면 마감일 지우기
+    })
     if (!ok) return
     returnFocus.current = true
     setIsEditing(false)
@@ -117,6 +126,22 @@ export default function TaskCard({ todo, busy = false, onToggle, onUpdate, onDel
               />
               <span>오늘 할 일</span>
             </label>
+            <DueDateField
+              id={`due-${todo.id}`}
+              value={draftDue}
+              onChange={setDraftDue}
+              onKeyDown={(e) => {
+                // 텍스트 입력창과 같은 키 동작 (Enter 저장, Esc 취소)
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  save()
+                }
+                if (e.key === 'Escape') {
+                  e.preventDefault()
+                  cancel()
+                }
+              }}
+            />
           </div>
         </div>
       ) : (
@@ -127,6 +152,7 @@ export default function TaskCard({ todo, busy = false, onToggle, onUpdate, onDel
           <div className="task__meta">
             <PriorityBadge priority={todo.priority} />
             {todo.today && <span className="tag">오늘</span>}
+            <DueBadge dueDate={todo.dueDate} done={todo.done} />
           </div>
         </div>
       )}

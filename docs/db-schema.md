@@ -2,9 +2,9 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 문서 버전 | 0.1 (초안) |
+| 문서 버전 | 0.2 (초안). 0.2: `due_date` 컬럼 추가 (FR-15) |
 | DB | Supabase PostgreSQL |
-| 관련 요구사항 | FR-01~FR-07, FR-13, NFR-05 ([PRD.md](PRD.md)) |
+| 관련 요구사항 | FR-01~FR-07, FR-13, FR-15, NFR-05 ([PRD.md](PRD.md)) |
 | 마이그레이션 위치 | `supabase/migrations/` (미작성, [TASKS.md](TASKS.md)의 T-02) |
 
 ## 테이블: `public.todos`
@@ -16,6 +16,7 @@
 | `done` | `boolean` | `not null default false` | FR-03 |
 | `priority` | `text` | `not null default 'medium'`, `check (priority in ('high','medium','low'))` | FR-06 |
 | `today` | `boolean` | `not null default false` | FR-07 |
+| `due_date` | `date` | `null` 허용, 기본값 없음(`null` = 마감일 없음) | FR-15 |
 | `created_at` | `timestamptz` | `not null default now()` | FR-02 |
 | `updated_at` | `timestamptz` | `not null default now()`, 수정 시 트리거로 갱신 | FR-04 |
 
@@ -45,6 +46,7 @@ create table public.todos (
   done        boolean not null default false,
   priority    text not null default 'medium' check (priority in ('high', 'medium', 'low')),
   today       boolean not null default false,
+  due_date    date,
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
 );
@@ -66,6 +68,17 @@ create trigger todos_set_updated_at
 alter table public.todos enable row level security;
 ```
 
+### 마감일 추가 마이그레이션 (T-14)
+
+위 초안을 아직 적용하지 않았다면 초안에 포함된 `due_date` 컬럼으로 충분합니다. 이미 `todos` 테이블을 만든 뒤라면 아래 마이그레이션을 따로 추가합니다. **둘 다 승인 전에는 실행하지 않습니다.** 현재 백엔드는 In-Memory 저장소라서 DB 변경 없이 동작합니다.
+
+```sql
+alter table public.todos add column due_date date;
+```
+
+- `date` 타입이라 시간대 변환이 없습니다. "오늘"인지는 화면에서 사용자 현지 날짜로 판단합니다(FR-15).
+- 마감일 기준 정렬·필터는 범위 밖이므로 인덱스를 추가하지 않습니다.
+
 ## 프론트엔드 상태와의 대응
 
-현재 프론트엔드의 todo 형태 `{ id, text, done, priority, today }`는 이 테이블의 컬럼과 이름이 같습니다. `created_at`과 `updated_at`은 프론트엔드에서 쓰지 않아도 됩니다(정렬은 서버가 처리).
+현재 프론트엔드의 todo 형태는 `{ id, text, done, priority, today, dueDate }`입니다. `due_date` ↔ `dueDate` 변환은 `frontend/src/api/todos.js`에서만 합니다. `created_at`과 `updated_at`은 프론트엔드에서 쓰지 않아도 됩니다(정렬은 서버가 처리).

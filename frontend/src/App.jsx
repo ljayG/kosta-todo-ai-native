@@ -17,7 +17,7 @@ const EMPTY_COPY = {
 }
 
 export default function App() {
-  // todo: { id, text, done, priority: 'high'|'medium'|'low', today: boolean }
+  // todo: { id, text, done, priority: 'high'|'medium'|'low', today: boolean, dueDate: 'YYYY-MM-DD'|null }
   const [todos, setTodos] = useState([])
   const [filter, setFilter] = useState('all')
   const [loadState, setLoadState] = useState('loading') // loading | ready | error
@@ -92,8 +92,8 @@ export default function App() {
   const replaceLocal = (saved) => setTodos((prev) => prev.map((t) => (t.id === saved.id ? saved : t)))
 
   // 콜백 이름과 인자는 기존과 같고, 성공 여부(Promise<boolean>)를 돌려준다
-  const addTodo = async ({ text, priority, today }) =>
-    (await mutate('new', '추가', () => api.createTodo({ text, priority, today }), (saved) =>
+  const addTodo = async ({ text, priority, today, dueDate }) =>
+    (await mutate('new', '추가', () => api.createTodo({ text, priority, today, dueDate }), (saved) =>
       setTodos((prev) => [...prev, saved]),
     )) === 'ok'
 

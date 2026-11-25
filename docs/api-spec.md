@@ -2,9 +2,9 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 문서 버전 | 0.1 (초안) |
-| 관련 요구사항 | FR-01~FR-05, FR-13, FR-14, NFR-05, NFR-07 ([PRD.md](PRD.md)) |
-| 구현 | FastAPI (`backend/`), 미구현 |
+| 문서 버전 | 0.2 (초안). 0.2: `due_date` 필드 추가 (FR-15). 기존 요청·응답과 호환됨 |
+| 관련 요구사항 | FR-01~FR-05, FR-13~FR-15, NFR-05, NFR-07 ([PRD.md](PRD.md)) |
+| 구현 | FastAPI (`backend/`), In-Memory 저장소 |
 
 ## 공통 규칙
 
@@ -23,6 +23,7 @@
   "done": false,
   "priority": "high",
   "today": true,
+  "due_date": "2026-11-28",
   "created_at": "2026-11-25T09:00:00.000000+00:00",
   "updated_at": "2026-11-25T09:00:00.000000+00:00"
 }
@@ -35,6 +36,7 @@
 | `done` | boolean | |
 | `priority` | string | `high` \| `medium` \| `low` |
 | `today` | boolean | |
+| `due_date` | string (`YYYY-MM-DD`) \| null | 마감일. 시각과 시간대 없음. `null`이면 마감일 없음 |
 | `created_at`, `updated_at` | string (ISO 8601) | 서버 기록, 읽기 전용 |
 
 ### 오류 응답
@@ -44,7 +46,7 @@
 | 상태 코드 | 상황 | 본문 예 |
 | --- | --- | --- |
 | 404 | 해당 id의 할 일이 없음 | `{"detail": "할 일을 찾을 수 없습니다."}` |
-| 422 | 검증 실패 (빈 내용, 200자 초과, 잘못된 priority, UUID 형식 아님, 알 수 없는 필드) | FastAPI 기본 검증 오류 배열 |
+| 422 | 검증 실패 (빈 내용, 200자 초과, 잘못된 priority, 잘못된 날짜, UUID 형식 아님, 알 수 없는 필드) | FastAPI 기본 검증 오류 배열 |
 | 500 | DB 오류 등 서버 내부 오류 | `{"detail": "서버 오류가 발생했습니다."}`. 내부 정보는 노출하지 않음 |
 
 ## 엔드포인트
@@ -61,22 +63,24 @@
 할 일을 만듭니다.
 - **요청:**
   ```json
-  { "text": "주간 보고서 작성", "priority": "high", "today": true }
+  { "text": "주간 보고서 작성", "priority": "high", "today": true, "due_date": "2026-11-28" }
   ```
   - `text`: 필수.
   - `priority`: 선택, 기본값 `medium`.
   - `today`: 선택, 기본값 `false`.
+  - `due_date`: 선택, 기본값 `null`. `YYYY-MM-DD` 형식의 실제 날짜만 받습니다(예: `2026-02-30`은 422). 시각이 붙은 값도 422입니다.
   - `done`, `id`, 시각 필드를 보내면 422입니다.
 - **응답:** `201 Todo`
 - **오류:** `422`
 
 ### API-04 `PATCH /api/todos/{id}` (FR-03, FR-04, FR-13)
 할 일의 일부 필드를 바꿉니다. 완료 처리(FR-03)와 수정(FR-04)이 모두 이 API를 씁니다.
-- **요청:** `text`, `done`, `priority`, `today` 중 하나 이상.
+- **요청:** `text`, `done`, `priority`, `today`, `due_date` 중 하나 이상.
   ```json
   { "done": true }
   ```
-  - 빈 객체 `{}`, 알 수 없는 필드, `null` 값은 422입니다.
+  - 빈 객체 `{}`, 알 수 없는 필드는 422입니다.
+  - `null` 값은 422입니다. **예외:** `due_date`만 `null`을 받으며, 마감일을 지운다는 뜻입니다. `due_date`를 보내지 않으면 기존 마감일이 유지됩니다.
 - **응답:** `200 Todo`. `updated_at`이 갱신됩니다.
 - **오류:** `404`, `422`
 

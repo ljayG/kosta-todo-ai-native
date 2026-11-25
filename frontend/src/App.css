@@ -699,6 +699,79 @@ select {
   color: var(--forest);
 }
 
+/* 마감일 배지 (FR-15): 채워진 우선순위 배지와 구분되도록 테두리형. 지남만 채워서 강조 */
+.due {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 22px;
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.due--today,
+.due--soon {
+  border-color: var(--p-medium);
+  color: var(--p-medium);
+}
+
+.due--today {
+  font-weight: 700;
+}
+
+.due--overdue {
+  border-color: var(--danger);
+  background: var(--p-high-soft);
+  color: var(--danger);
+  font-weight: 700;
+}
+
+/* 마감일 입력 */
+.due-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.due-field__label {
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.due-field__input {
+  min-height: 32px;
+  padding: 0 8px;
+  font-size: 13px;
+  background: var(--paper);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  color-scheme: inherit;
+}
+
+.due-field__clear {
+  min-height: 32px;
+  padding: 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  background: transparent;
+  border: none;
+  color: var(--ink-soft);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.due-field__clear:hover {
+  color: var(--ink);
+}
+
 /* ---------- 버튼 ---------- */
 .btn {
   display: inline-flex;

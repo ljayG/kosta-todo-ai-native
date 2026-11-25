@@ -4,7 +4,7 @@
 TodoRepository 인터페이스를 구현한 클래스를 추가해 교체한다.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from threading import Lock
 from typing import Protocol
 from uuid import UUID, uuid4
@@ -15,7 +15,7 @@ from app.schemas import Todo
 class TodoRepository(Protocol):
     def list(self) -> list[Todo]: ...
     def get(self, todo_id: UUID) -> Todo | None: ...
-    def add(self, text: str, priority: str, today: bool) -> Todo: ...
+    def add(self, text: str, priority: str, today: bool, due_date: date | None = None) -> Todo: ...
     def update(self, todo_id: UUID, changes: dict) -> Todo | None: ...
     def delete(self, todo_id: UUID) -> bool: ...
 
@@ -46,7 +46,7 @@ class InMemoryTodoRepository:
         with self._lock:
             return self._items.get(todo_id)
 
-    def add(self, text: str, priority: str, today: bool) -> Todo:
+    def add(self, text: str, priority: str, today: bool, due_date: date | None = None) -> Todo:
         with self._lock:
             now = self._now()
             todo = Todo(
@@ -55,6 +55,7 @@ class InMemoryTodoRepository:
                 done=False,
                 priority=priority,
                 today=today,
+                due_date=due_date,
                 created_at=now,
                 updated_at=now,
             )

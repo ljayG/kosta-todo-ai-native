@@ -42,3 +42,14 @@ def test_timestamps_strictly_increase_even_when_fast():
 def test_update_changes_only_set_fields():
     data = TodoUpdate(done=True)
     assert data.changes() == {"done": True}
+
+
+def test_create_passes_due_date(service):
+    from datetime import date
+
+    todo = service.create_todo(TodoCreate(text="보고서", due_date="2026-11-28"))
+    assert todo.due_date == date(2026, 11, 28)
+
+
+def test_update_changes_includes_null_due_date():
+    assert TodoUpdate(due_date=None).changes() == {"due_date": None}

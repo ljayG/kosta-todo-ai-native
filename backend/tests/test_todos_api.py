@@ -4,7 +4,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
-TODO_FIELDS = {"id", "text", "done", "priority", "today", "created_at", "updated_at"}
+TODO_FIELDS = {"id", "text", "done", "priority", "today", "due_date", "created_at", "updated_at"}
 
 
 # ---------- API-01 ----------
@@ -24,6 +24,7 @@ def test_ac31_create_trims_text_and_applies_defaults(client):
     assert body["priority"] == "medium"
     assert body["today"] is False
     assert body["done"] is False
+    assert body["due_date"] is None
     UUID(body["id"])  # 서버가 만든 UUID
     assert body["created_at"] == body["updated_at"]
 
@@ -185,3 +186,70 @@ def test_internal_error_hides_details(make_todo):
     assert res.status_code == 500
     assert res.json() == {"detail": "서버 오류가 발생했습니다."}
     assert "비밀번호" not in res.text
+
+
+# ---------- 마감일 (FR-15) ----------
+def test_ac39_create_with_due_date(client):
+    res = client.post("/api/todos", json={"text": "보고서", "due_date": "2026-11-28"})
+    assert res.status_code == 201
+    assert res.json()["due_date"] == "2026-11-28"
+    assert client.get("/api/todos").json()[0]["due_date"] == "2026-11-28"
+
+
+def test_ac39_create_with_null_due_date(client):
+    res = client.post("/api/todos", json={"text": "보고서", "due_date": None})
+    assert res.status_code == 201
+    assert res.json()["due_date"] is None
+
+
+def test_due_date_in_past_is_allowed(client):
+    res = client.post("/api/todos", json={"text": "지난 일", "due_date": "2020-01-01"})
+    assert res.status_code == 201
+
+
+@pytest.mark.parametrize(
+    "due_date",
+    ["2026-02-30", "2026-13-01", "28-11-2026", "2026/11/28", "2026-11-28T10:00:00", "2026-11-28 10:00", "", 123, 0, True, []],
+    ids=["없는날짜", "13월", "일월년", "슬래시", "시각포함", "공백시각", "빈문자열", "숫자", "0", "불리언", "배열"],
+)
+def test_ac50_invalid_due_date(client, make_todo, due_date):
+    res = client.post("/api/todos", json={"text": "보고서", "due_date": due_date})
+    assert res.status_code == 422
+    todo = make_todo("기존")
+    res = client.patch(f"/api/todos/{todo['id']}", json={"due_date": due_date})
+    assert res.status_code == 422
+    assert client.get("/api/todos").json()[0]["due_date"] is None
+
+
+def test_ac51_patch_set_and_clear_due_date(client, make_todo):
+    todo = make_todo("보고서")
+    res = client.patch(f"/api/todos/{todo['id']}", json={"due_date": "2026-12-01"})
+    assert res.status_code == 200
+    assert res.json()["due_date"] == "2026-12-01"
+    res = client.patch(f"/api/todos/{todo['id']}", json={"due_date": None})
+    assert res.status_code == 200
+    assert res.json()["due_date"] is None
+    assert client.get("/api/todos").json()[0]["due_date"] is None
+
+
+def test_ac52_other_patch_keeps_due_date(client, make_todo):
+    todo = make_todo("보고서", due_date="2026-11-28")
+    res = client.patch(f"/api/todos/{todo['id']}", json={"done": True})
+    assert res.json()["due_date"] == "2026-11-28"
+    res = client.patch(f"/api/todos/{todo['id']}", json={"text": "주간 보고서", "priority": "high"})
+    assert res.json()["due_date"] == "2026-11-28"
+
+
+def test_null_still_rejected_for_other_fields_with_due_date(client, make_todo):
+    """due_date만 null 예외다. 다른 필드의 null은 함께 보내도 422."""
+    todo = make_todo("보고서")
+    res = client.patch(f"/api/todos/{todo['id']}", json={"due_date": None, "priority": None})
+    assert res.status_code == 422
+
+
+def test_existing_clients_without_due_date_still_work(client):
+    """기존 API 계약 유지: due_date를 모르는 클라이언트의 요청도 그대로 동작한다."""
+    res = client.post("/api/todos", json={"text": "보고서", "priority": "low", "today": True})
+    assert res.status_code == 201
+    res = client.patch(f"/api/todos/{res.json()['id']}", json={"done": True})
+    assert res.status_code == 200

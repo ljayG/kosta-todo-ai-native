@@ -43,7 +43,8 @@ lession/               강의 자료. 프로젝트 코드 아님, 수정 금지
 
 ### 프론트엔드
 - **상태는 `App.jsx`에만 둡니다.** `todos`, `filter`, `loadState`(loading/ready/error), `pendingIds`(요청 중인 id, 등록은 `'new'`), `notice`가 있습니다. 통계, 완료율, 필터된 목록, 오늘의 작업은 렌더링 중에 `todos`에서 계산합니다.
-- **todo 형태:** `{ id, text, done, priority: 'high' | 'medium' | 'low', today: boolean }`. API의 `created_at`, `updated_at`은 `api/todos.js`에서 버립니다.
+- **todo 형태:** `{ id, text, done, priority: 'high' | 'medium' | 'low', today: boolean, dueDate: 'YYYY-MM-DD' | null }`. API의 snake_case(`due_date`) ↔ camelCase(`dueDate`) 변환과 `created_at`, `updated_at` 제거는 `api/todos.js`에서만 합니다.
+- **날짜:** 마감일은 시각 없는 날짜 문자열입니다. 오늘/내일/지남 판단과 표시 문구는 `src/dates.js`에서 브라우저 현지 날짜 기준으로 합니다. `new Date('YYYY-MM-DD')`는 UTC로 해석되므로 쓰지 않습니다.
 - **변경 흐름:** 컴포넌트 → `App.jsx` 콜백(`onAdd`, `onToggle`, `onUpdate(id, changes)`, `onDelete`) → `mutate()` → API. 서버가 응답한 뒤에 화면에 반영합니다(비관적 업데이트). 콜백은 성공 여부를 `Promise<boolean>`으로 돌려주고, 컴포넌트는 실패하면 입력값을 유지합니다. 404는 화면에서 항목을 지우고 안내합니다.
 - **요청 중 표시:** 카드의 버튼과 체크박스는 `disabled`가 아니라 `aria-disabled`를 쓰고 핸들러에서 무시합니다. 포커스를 잃지 않게 하기 위해서입니다.
 - 개발 서버는 `/api`를 `http://localhost:8000`으로 프록시합니다(`vite.config.js`). `VITE_API_BASE_URL`을 비워 두면 같은 출처의 `/api`를 호출합니다.
@@ -86,7 +87,7 @@ npm run build     # 프로덕션 빌드. 변경 후 반드시 통과 확인
 엔드포인트, 요청·응답, 오류의 세부 사항은 `docs/api-spec.md`를 따르고, 아래는 핵심 원칙만 요약합니다.
 - **연결 구조:** 프론트엔드는 FastAPI만 호출하고, Supabase에 직접 접근하지 않습니다. Supabase 키는 백엔드 환경 변수(`backend/.env`, git 제외)에만 둡니다.
 - **엔드포인트:** 리소스 단위로 만듭니다. `GET /api/todos`, `POST /api/todos`, `PATCH /api/todos/{id}`, `DELETE /api/todos/{id}`, `GET /api/health`.
-- **스키마 검증:** Pydantic 모델에 `extra="forbid"`를 씁니다. `text`는 앞뒤 공백을 제거한 뒤 1~200자입니다. PATCH는 필드가 하나 이상 있어야 하고 null은 받지 않습니다.
+- **스키마 검증:** Pydantic 모델에 `extra="forbid"`를 씁니다. `text`는 앞뒤 공백을 제거한 뒤 1~200자입니다. PATCH는 필드가 하나 이상 있어야 하고 null은 받지 않습니다. 예외로 `due_date: null`은 마감일 지우기입니다.
 - **오류:** 없는 id는 404(`"할 일을 찾을 수 없습니다."`), 검증 실패는 422, 처리하지 못한 오류는 500(`"서버 오류가 발생했습니다."`)이며 내부 정보는 노출하지 않습니다.
 - **CORS:** 허용 출처는 `ALLOWED_ORIGINS` 환경 변수(기본값 `http://localhost:5173`)로 정합니다.
 - **DB 변경:** SQL 마이그레이션 파일로 `supabase/migrations/`에 추가합니다.

@@ -1,20 +1,25 @@
 import { useState } from 'react'
 import { PRIORITIES } from '../constants.js'
 import ClearButton from './ClearButton.jsx'
+import DueDateField from './DueDateField.jsx'
 
-// 새 할 일 입력 폼: 내용, 우선순위, 오늘 할 일 여부
+// 새 할 일 입력 폼: 내용, 우선순위, 오늘 할 일 여부, 마감일
 // adding: 등록 요청 중 여부. 실패하면 입력한 내용을 그대로 둔다 (AC-21)
 export default function TaskComposer({ onAdd, inputRef, adding = false }) {
   const [text, setText] = useState('')
   const [priority, setPriority] = useState('medium')
   const [today, setToday] = useState(false)
+  const [dueDate, setDueDate] = useState('') // '' = 마감일 없음
 
   const submit = async (e) => {
     e.preventDefault()
     const value = text.trim()
     if (!value || adding) return
-    const ok = await onAdd({ text: value, priority, today })
-    if (ok) setText('')
+    const ok = await onAdd({ text: value, priority, today, dueDate: dueDate || null })
+    if (ok) {
+      setText('')
+      setDueDate('')
+    }
     inputRef.current?.focus()
   }
 
@@ -70,6 +75,8 @@ export default function TaskComposer({ onAdd, inputRef, adding = false }) {
           <input type="checkbox" checked={today} onChange={(e) => setToday(e.target.checked)} />
           <span>오늘 할 일</span>
         </label>
+
+        <DueDateField id="new-due" value={dueDate} onChange={setDueDate} />
       </div>
     </form>
   )
