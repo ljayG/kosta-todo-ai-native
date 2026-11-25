@@ -2,8 +2,8 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 문서 버전 | 0.2 (초안). 0.2: `due_date` 필드 추가 (FR-15). 기존 요청·응답과 호환됨 |
-| 관련 요구사항 | FR-01~FR-05, FR-13~FR-15, NFR-05, NFR-07 ([PRD.md](PRD.md)) |
+| 문서 버전 | 0.3 (초안). 0.2: `due_date` 추가 (FR-15). 0.3: `category` 필드와 목록 필터 쿼리 추가 (FR-16). 모두 기존 요청·응답과 호환됨 |
+| 관련 요구사항 | FR-01~FR-05, FR-13~FR-16, NFR-05, NFR-07 ([PRD.md](PRD.md)) |
 | 구현 | FastAPI (`backend/`), In-Memory 저장소 |
 
 ## 공통 규칙
@@ -12,7 +12,7 @@
 - **형식:** 요청과 응답 본문은 JSON(`Content-Type: application/json`)입니다. 필드 이름은 DB와 같은 snake_case를 씁니다.
 - **인증:** v1은 인증이 없습니다. 결정 필요 항목은 [spec-review.md](spec-review.md)의 D-01을 참고합니다.
 - **CORS:** `ALLOWED_ORIGINS` 환경 변수에 적은 출처만 허용합니다.
-- **필터와 통계:** 필터(FR-08), 통계(FR-09), 완료율(FR-10), 오늘의 작업(FR-07)은 서버가 아니라 화면에서 목록 전체로 계산합니다. 그래서 별도 API가 없습니다.
+- **필터와 통계:** 상태 필터(FR-08), 통계(FR-09), 완료율(FR-10), 오늘의 작업(FR-07)은 서버가 아니라 화면에서 목록 전체로 계산합니다. 카테고리 필터(FR-16)는 API-02의 선택적 쿼리 `category`로도 제공하지만, 현재 화면은 통계를 전체 기준으로 계산해야 하므로 전체 목록을 받아 화면에서 거릅니다.
 
 ### Todo 객체
 
@@ -24,6 +24,7 @@
   "priority": "high",
   "today": true,
   "due_date": "2026-11-28",
+  "category": "work",
   "created_at": "2026-11-25T09:00:00.000000+00:00",
   "updated_at": "2026-11-25T09:00:00.000000+00:00"
 }
@@ -36,6 +37,7 @@
 | `done` | boolean | |
 | `priority` | string | `high` \| `medium` \| `low` |
 | `today` | boolean | |
+| `category` | string | `work` \| `personal` \| `study` |
 | `due_date` | string (`YYYY-MM-DD`) \| null | 마감일. 시각과 시간대 없음. `null`이면 마감일 없음 |
 | `created_at`, `updated_at` | string (ISO 8601) | 서버 기록, 읽기 전용 |
 
@@ -46,7 +48,7 @@
 | 상태 코드 | 상황 | 본문 예 |
 | --- | --- | --- |
 | 404 | 해당 id의 할 일이 없음 | `{"detail": "할 일을 찾을 수 없습니다."}` |
-| 422 | 검증 실패 (빈 내용, 200자 초과, 잘못된 priority, 잘못된 날짜, UUID 형식 아님, 알 수 없는 필드) | FastAPI 기본 검증 오류 배열 |
+| 422 | 검증 실패 (빈 내용, 200자 초과, 잘못된 priority, 잘못된 category, 잘못된 날짜, UUID 형식 아님, 알 수 없는 필드) | FastAPI 기본 검증 오류 배열 |
 | 500 | DB 오류 등 서버 내부 오류 | `{"detail": "서버 오류가 발생했습니다."}`. 내부 정보는 노출하지 않음 |
 
 ## 엔드포인트
@@ -57,7 +59,10 @@
 
 ### API-02 `GET /api/todos` (FR-02, FR-13)
 할 일 전체를 생성 순서(`created_at` 오름차순, 같으면 `id` 오름차순)로 돌려줍니다.
+- **쿼리 (선택):** `category` = `work` \| `personal` \| `study`. 지정하면 그 카테고리만 같은 순서로 돌려줍니다. 지정하지 않으면 전체입니다(FR-16). 다른 값은 422입니다.
+  - 예: `GET /api/todos?category=work`
 - **응답:** `200 Todo[]`. 없으면 `[]`.
+- **오류:** `422` (잘못된 `category`)
 
 ### API-03 `POST /api/todos` (FR-01, FR-13)
 할 일을 만듭니다.
@@ -68,6 +73,7 @@
   - `text`: 필수.
   - `priority`: 선택, 기본값 `medium`.
   - `today`: 선택, 기본값 `false`.
+  - `category`: 선택, 기본값 `personal`.
   - `due_date`: 선택, 기본값 `null`. `YYYY-MM-DD` 형식의 실제 날짜만 받습니다(예: `2026-02-30`은 422). 시각이 붙은 값도 422입니다.
   - `done`, `id`, 시각 필드를 보내면 422입니다.
 - **응답:** `201 Todo`
@@ -75,7 +81,7 @@
 
 ### API-04 `PATCH /api/todos/{id}` (FR-03, FR-04, FR-13)
 할 일의 일부 필드를 바꿉니다. 완료 처리(FR-03)와 수정(FR-04)이 모두 이 API를 씁니다.
-- **요청:** `text`, `done`, `priority`, `today`, `due_date` 중 하나 이상.
+- **요청:** `text`, `done`, `priority`, `today`, `category`, `due_date` 중 하나 이상.
   ```json
   { "done": true }
   ```

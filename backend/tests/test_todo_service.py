@@ -53,3 +53,15 @@ def test_create_passes_due_date(service):
 
 def test_update_changes_includes_null_due_date():
     assert TodoUpdate(due_date=None).changes() == {"due_date": None}
+
+
+def test_list_filters_by_category(service):
+    service.create_todo(TodoCreate(text="업무", category="work"))
+    service.create_todo(TodoCreate(text="개인"))
+    assert [t.text for t in service.list_todos("work")] == ["업무"]
+    assert [t.text for t in service.list_todos()] == ["업무", "개인"]
+
+
+def test_create_passes_category(service):
+    todo = service.create_todo(TodoCreate(text="공부", category="study"))
+    assert todo.category == "study"

@@ -4,7 +4,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
-TODO_FIELDS = {"id", "text", "done", "priority", "today", "due_date", "created_at", "updated_at"}
+TODO_FIELDS = {"id", "text", "done", "priority", "today", "category", "due_date", "created_at", "updated_at"}
 
 
 # ---------- API-01 ----------
@@ -25,6 +25,7 @@ def test_ac31_create_trims_text_and_applies_defaults(client):
     assert body["today"] is False
     assert body["done"] is False
     assert body["due_date"] is None
+    assert body["category"] == "personal"
     UUID(body["id"])  # 서버가 만든 UUID
     assert body["created_at"] == body["updated_at"]
 
@@ -177,7 +178,7 @@ def test_internal_error_hides_details(make_todo):
     from app.main import app
 
     class BrokenRepo:
-        def list(self):
+        def list(self, category=None):
             raise RuntimeError("DB 비밀번호가 틀림")
 
     app.dependency_overrides[get_repository] = lambda: BrokenRepo()
@@ -253,3 +254,75 @@ def test_existing_clients_without_due_date_still_work(client):
     assert res.status_code == 201
     res = client.patch(f"/api/todos/{res.json()['id']}", json={"done": True})
     assert res.status_code == 200
+
+
+# ---------- 카테고리 (FR-16) ----------
+def test_ac69_create_category_default_and_given(client):
+    res = client.post("/api/todos", json={"text": "기본"})
+    assert res.json()["category"] == "personal"
+    res = client.post("/api/todos", json={"text": "공부", "category": "study"})
+    assert res.status_code == 201
+    assert res.json()["category"] == "study"
+
+
+@pytest.mark.parametrize("category", ["hobby", "", None, 1, "Work", ["work"]],
+                         ids=["없는값", "빈문자열", "null", "숫자", "대문자", "배열"])
+def test_ac70_invalid_category(client, make_todo, category):
+    res = client.post("/api/todos", json={"text": "보고서", "category": category})
+    assert res.status_code == 422
+    todo = make_todo("기존")
+    res = client.patch(f"/api/todos/{todo['id']}", json={"category": category})
+    assert res.status_code == 422
+    assert client.get("/api/todos").json()[0]["category"] == "personal"
+
+
+def test_ac71_list_filter_by_category(client, make_todo):
+    make_todo("업무1", category="work")
+    make_todo("개인1")
+    make_todo("업무2", category="work")
+    make_todo("학습1", category="study")
+    res = client.get("/api/todos", params={"category": "work"})
+    assert res.status_code == 200
+    assert [t["text"] for t in res.json()] == ["업무1", "업무2"]  # 생성 순서 유지
+    assert [t["text"] for t in client.get("/api/todos?category=personal").json()] == ["개인1"]
+    assert [t["text"] for t in client.get("/api/todos?category=study").json()] == ["학습1"]
+    assert len(client.get("/api/todos").json()) == 4  # 쿼리 없으면 전체
+
+
+def test_ac71_list_filter_empty_and_invalid(client, make_todo):
+    make_todo("개인1")
+    assert client.get("/api/todos?category=work").json() == []
+    res = client.get("/api/todos?category=hobby")
+    assert res.status_code == 422
+    assert "detail" in res.json()
+
+
+def test_ac72_patch_category_keeps_other_fields(client, make_todo):
+    todo = make_todo("보고서", priority="high", today=True, due_date="2026-11-28")
+    res = client.patch(f"/api/todos/{todo['id']}", json={"category": "work"})
+    assert res.status_code == 200
+    body = res.json()
+    assert body["category"] == "work"
+    assert (body["priority"], body["today"], body["due_date"], body["text"]) == ("high", True, "2026-11-28", "보고서")
+
+
+def test_other_patch_keeps_category(client, make_todo):
+    todo = make_todo("보고서", category="study")
+    res = client.patch(f"/api/todos/{todo['id']}", json={"done": True, "due_date": None})
+    assert res.json()["category"] == "study"
+
+
+def test_filter_reflects_category_change(client, make_todo):
+    todo = make_todo("보고서", category="work")
+    client.patch(f"/api/todos/{todo['id']}", json={"category": "study"})
+    assert client.get("/api/todos?category=work").json() == []
+    assert [t["id"] for t in client.get("/api/todos?category=study").json()] == [todo["id"]]
+
+
+def test_existing_clients_without_category_still_work(client):
+    """기존 API 계약 유지: category를 모르는 클라이언트의 요청도 그대로 동작한다."""
+    res = client.post("/api/todos", json={"text": "보고서", "priority": "low", "today": True, "due_date": "2026-11-28"})
+    assert res.status_code == 201
+    res = client.patch(f"/api/todos/{res.json()['id']}", json={"done": True})
+    assert res.status_code == 200
+    assert res.json()["category"] == "personal"

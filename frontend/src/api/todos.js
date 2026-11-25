@@ -32,12 +32,13 @@ async function request(path, { method = 'GET', body } = {}) {
 }
 
 // 서버(snake_case) → 화면(camelCase). created_at, updated_at은 화면에서 쓰지 않음
-const toTodo = ({ id, text, done, priority, today, due_date }) => ({
+const toTodo = ({ id, text, done, priority, today, category, due_date }) => ({
   id,
   text,
   done,
   priority,
   today,
+  category: category ?? 'personal',
   dueDate: due_date ?? null,
 })
 
@@ -50,10 +51,17 @@ const toBody = (fields) =>
       .map(([k, v]) => [FIELD_TO_API[k] ?? k, v]),
   )
 
-export const listTodos = async () => (await request('/api/todos')).map(toTodo)
+// category를 주면 서버에서 거른 목록 (FR-16). 화면은 통계 때문에 전체 목록을 받아 직접 거른다
+export const listTodos = async (category) =>
+  (await request(category ? `/api/todos?category=${encodeURIComponent(category)}` : '/api/todos')).map(toTodo)
 
-export const createTodo = async ({ text, priority, today, dueDate }) =>
-  toTodo(await request('/api/todos', { method: 'POST', body: toBody({ text, priority, today, dueDate }) }))
+export const createTodo = async ({ text, priority, today, category, dueDate }) =>
+  toTodo(
+    await request('/api/todos', {
+      method: 'POST',
+      body: toBody({ text, priority, today, category, dueDate }),
+    }),
+  )
 
 // changes.dueDate가 null이면 마감일을 지운다
 export const updateTodo = async (id, changes) =>

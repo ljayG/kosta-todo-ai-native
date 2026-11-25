@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import * as api from './api/todos.js'
-import { FILTERS, PRIORITY_RANK } from './constants.js'
+import { CATEGORY_LABEL, DEFAULT_CATEGORY, FILTERS, PRIORITY_RANK } from './constants.js'
+import CategoryFilter from './components/CategoryFilter.jsx'
 import EmptyState from './components/EmptyState.jsx'
 import FilterTabs from './components/FilterTabs.jsx'
 import Notice from './components/Notice.jsx'
@@ -17,9 +18,11 @@ const EMPTY_COPY = {
 }
 
 export default function App() {
-  // todo: { id, text, done, priority: 'high'|'medium'|'low', today: boolean, dueDate: 'YYYY-MM-DD'|null }
+  // todo: { id, text, done, priority: 'high'|'medium'|'low', today: boolean,
+  //         category: 'work'|'personal'|'study', dueDate: 'YYYY-MM-DD'|null }
   const [todos, setTodos] = useState([])
-  const [filter, setFilter] = useState('all')
+  const [filter, setFilter] = useState('all') // 상태 필터: all | active | done
+  const [categoryFilter, setCategoryFilter] = useState('all') // all | work | personal | study
   const [loadState, setLoadState] = useState('loading') // loading | ready | error
   const [pendingIds, setPendingIds] = useState(() => new Set()) // 요청 중인 할 일 id
   const [notice, setNotice] = useState(null) // { tone, message }
@@ -82,8 +85,14 @@ export default function App() {
   const activeCount = total - doneCount
   const percent = total ? Math.round((doneCount / total) * 100) : 0
 
-  const visible = todos.filter((t) =>
+  // 완료율·통계·오늘의 작업은 전체 기준, 목록과 상태 탭 개수는 카테고리 안에서 (FR-16)
+  const inCategory = categoryFilter === 'all' ? todos : todos.filter((t) => t.category === categoryFilter)
+  const catDone = inCategory.filter((t) => t.done).length
+  const visible = inCategory.filter((t) =>
     filter === 'active' ? !t.done : filter === 'done' ? t.done : true,
+  )
+  const categoryCounts = Object.fromEntries(
+    Object.keys(CATEGORY_LABEL).map((c) => [c, todos.filter((t) => t.category === c).length]),
   )
   const todayTasks = todos
     .filter((t) => t.today)
@@ -92,8 +101,8 @@ export default function App() {
   const replaceLocal = (saved) => setTodos((prev) => prev.map((t) => (t.id === saved.id ? saved : t)))
 
   // 콜백 이름과 인자는 기존과 같고, 성공 여부(Promise<boolean>)를 돌려준다
-  const addTodo = async ({ text, priority, today, dueDate }) =>
-    (await mutate('new', '추가', () => api.createTodo({ text, priority, today, dueDate }), (saved) =>
+  const addTodo = async ({ text, priority, today, category, dueDate }) =>
+    (await mutate('new', '추가', () => api.createTodo({ text, priority, today, category, dueDate }), (saved) =>
       setTodos((prev) => [...prev, saved]),
     )) === 'ok'
 
@@ -121,6 +130,7 @@ export default function App() {
 
   const activeTabId = `tab-${filter}`
   const filterLabel = FILTERS.find((f) => f.value === filter).label
+  const categoryLabel = categoryFilter === 'all' ? '' : `${CATEGORY_LABEL[categoryFilter]} `
 
   return (
     <div className="page">
@@ -132,7 +142,12 @@ export default function App() {
       <main className="layout">
         {/* DOM 순서 = 모바일 순서(입력 → 요약 → 목록). 데스크톱은 grid-area로 2열 배치 */}
         <section className="area-composer" aria-label="할 일 추가">
-          <TaskComposer onAdd={addTodo} inputRef={inputRef} adding={pendingIds.has('new')} />
+          <TaskComposer
+            onAdd={addTodo}
+            inputRef={inputRef}
+            adding={pendingIds.has('new')}
+            defaultCategory={categoryFilter === 'all' ? DEFAULT_CATEGORY : categoryFilter}
+          />
           {notice && (
             <Notice tone={notice.tone} message={notice.message} onClose={() => setNotice(null)} />
           )}
@@ -161,9 +176,15 @@ export default function App() {
               value={filter}
               onChange={setFilter}
               panelId="task-panel"
-              counts={{ all: total, active: activeCount, done: doneCount }}
+              counts={{ all: inCategory.length, active: inCategory.length - catDone, done: catDone }}
             />
           </div>
+
+          <CategoryFilter
+            value={categoryFilter}
+            onChange={setCategoryFilter}
+            counts={{ all: total, ...categoryCounts }}
+          />
 
           <div
             id="task-panel"
@@ -180,6 +201,13 @@ export default function App() {
                 actionLabel="다시 시도"
                 onAction={load}
               />
+            ) : total > 0 && inCategory.length === 0 ? (
+              <EmptyState
+                title={`${CATEGORY_LABEL[categoryFilter]} 할 일이 없습니다`}
+                hint="다른 카테고리를 보거나, 이 카테고리를 고른 채로 새 할 일을 추가하세요."
+                actionLabel="전체 보기"
+                onAction={() => setCategoryFilter('all')}
+              />
             ) : visible.length === 0 ? (
               <EmptyState
                 title={EMPTY_COPY[filter].title}
@@ -188,7 +216,7 @@ export default function App() {
                 onAction={() => inputRef.current?.focus()}
               />
             ) : (
-              <ul className="tasks" aria-label={`${filterLabel} 작업`}>
+              <ul className="tasks" aria-label={`${categoryLabel}${filterLabel} 작업`}>
                 {visible.map((todo) => (
                   <TaskCard
                     key={todo.id}

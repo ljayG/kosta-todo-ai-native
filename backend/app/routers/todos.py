@@ -2,10 +2,10 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
 from app.dependencies import get_todo_service
-from app.schemas import Todo, TodoCreate, TodoUpdate
+from app.schemas import Category, Todo, TodoCreate, TodoUpdate
 from app.services.todo_service import TodoNotFoundError, TodoService
 
 router = APIRouter(prefix="/api/todos", tags=["todos"])
@@ -14,8 +14,11 @@ NOT_FOUND = "할 일을 찾을 수 없습니다."
 
 
 @router.get("", response_model=list[Todo])
-def list_todos(service: TodoService = Depends(get_todo_service)) -> list[Todo]:
-    return service.list_todos()
+def list_todos(
+    category: Category | None = Query(None, description="카테고리 필터 (없으면 전체)"),
+    service: TodoService = Depends(get_todo_service),
+) -> list[Todo]:
+    return service.list_todos(category)
 
 
 @router.post("", response_model=Todo, status_code=status.HTTP_201_CREATED)

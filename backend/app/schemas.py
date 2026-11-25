@@ -9,6 +9,10 @@ from pydantic import BaseModel, BeforeValidator, ConfigDict, StringConstraints, 
 
 Priority = Literal["high", "medium", "low"]
 
+# 카테고리: 업무 / 개인 / 학습 (FR-16). 기본값은 personal
+Category = Literal["work", "personal", "study"]
+DEFAULT_CATEGORY: Category = "personal"
+
 # 앞뒤 공백 제거 후 1~200자 (FR-01, FR-04)
 TodoText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
 
@@ -43,6 +47,7 @@ class TodoCreate(BaseModel):
     text: TodoText
     priority: Priority = "medium"
     today: bool = False
+    category: Category = DEFAULT_CATEGORY
     due_date: DueDate | None = None
 
 
@@ -58,6 +63,7 @@ class TodoUpdate(BaseModel):
     done: bool | None = None
     priority: Priority | None = None
     today: bool | None = None
+    category: Category | None = None
     due_date: DueDate | None = None
 
     @model_validator(mode="after")
@@ -82,6 +88,7 @@ class Todo(BaseModel):
     done: bool
     priority: Priority
     today: bool
+    category: Category = DEFAULT_CATEGORY
     due_date: date | None
     created_at: datetime
     updated_at: datetime

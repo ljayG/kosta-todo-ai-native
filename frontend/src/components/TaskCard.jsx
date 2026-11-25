@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { PRIORITIES } from '../constants.js'
+import { CATEGORIES, CATEGORY_LABEL, PRIORITIES } from '../constants.js'
 import ClearButton from './ClearButton.jsx'
 import DueBadge from './DueBadge.jsx'
 import DueDateField from './DueDateField.jsx'
 import PriorityBadge from './PriorityBadge.jsx'
 
-// 작업 카드: 완료 체크, 내용, 우선순위 배지, 오늘 표시, 마감일, 수정/삭제
+// 작업 카드: 완료 체크, 내용, 카테고리, 우선순위 배지, 오늘 표시, 마감일, 수정/삭제
 // busy: 이 작업의 서버 요청이 진행 중. 포커스를 잃지 않도록 disabled 대신
 // aria-disabled로 표시하고 조작을 무시한다.
 export default function TaskCard({ todo, busy = false, onToggle, onUpdate, onDelete }) {
@@ -14,6 +14,7 @@ export default function TaskCard({ todo, busy = false, onToggle, onUpdate, onDel
   const [draftPriority, setDraftPriority] = useState(todo.priority)
   const [draftToday, setDraftToday] = useState(todo.today)
   const [draftDue, setDraftDue] = useState(todo.dueDate ?? '') // '' = 마감일 없음
+  const [draftCategory, setDraftCategory] = useState(todo.category)
   const editRef = useRef(null)
   const editBtnRef = useRef(null)
   const returnFocus = useRef(false)
@@ -31,6 +32,7 @@ export default function TaskCard({ todo, busy = false, onToggle, onUpdate, onDel
     setDraftPriority(todo.priority)
     setDraftToday(todo.today)
     setDraftDue(todo.dueDate ?? '')
+    setDraftCategory(todo.category)
     setIsEditing(true)
   }
 
@@ -42,6 +44,7 @@ export default function TaskCard({ todo, busy = false, onToggle, onUpdate, onDel
       text,
       priority: draftPriority,
       today: draftToday,
+      category: draftCategory,
       dueDate: draftDue || null, // 비우면 마감일 지우기
     })
     if (!ok) return
@@ -118,6 +121,21 @@ export default function TaskCard({ todo, busy = false, onToggle, onUpdate, onDel
                 ))}
               </select>
             </label>
+            <label className="field-inline">
+              <span className="field-inline__label">카테고리</span>
+              <select
+                className="field-inline__select"
+                value={draftCategory}
+                onChange={(e) => setDraftCategory(e.target.value)}
+                onKeyDown={(e) => e.key === 'Escape' && cancel()}
+              >
+                {CATEGORIES.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </label>
             <label className="toggle">
               <input
                 type="checkbox"
@@ -150,6 +168,10 @@ export default function TaskCard({ todo, busy = false, onToggle, onUpdate, onDel
             {todo.text}
           </label>
           <div className="task__meta">
+            <span className="category">
+              <span className="sr-only">카테고리 </span>
+              {CATEGORY_LABEL[todo.category]}
+            </span>
             <PriorityBadge priority={todo.priority} />
             {todo.today && <span className="tag">오늘</span>}
             <DueBadge dueDate={todo.dueDate} done={todo.done} />

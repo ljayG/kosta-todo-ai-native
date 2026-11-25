@@ -732,6 +732,109 @@ select {
   font-weight: 700;
 }
 
+/* 카테고리 표시 (FR-16): 색 없이 텍스트로만 */
+.category {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding-right: 2px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+/* 라벨이 붙은 작은 선택 상자 (카테고리) */
+.field-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.field-inline__label {
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.field-inline__select {
+  min-height: 32px;
+  padding: 0 8px;
+  font-size: 13px;
+  background: var(--paper);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+/* 카테고리 필터 (라디오 그룹) */
+.catfilter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 14px;
+  padding: 0;
+  border: none;
+}
+
+.catfilter__legend {
+  float: left;
+  margin-right: 6px;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.catfilter__item {
+  position: relative;
+  cursor: pointer;
+}
+
+.catfilter__item input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.catfilter__item > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink-soft);
+}
+
+.catfilter__item:hover > span {
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+
+.catfilter__item input:checked + span {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+
+.catfilter__item input:focus-visible + span {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.catfilter__count {
+  font-size: 12px;
+  font-weight: 500;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+
 /* 마감일 입력 */
 .due-field {
   display: inline-flex;

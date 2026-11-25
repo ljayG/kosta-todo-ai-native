@@ -9,13 +9,20 @@ from threading import Lock
 from typing import Protocol
 from uuid import UUID, uuid4
 
-from app.schemas import Todo
+from app.schemas import DEFAULT_CATEGORY, Todo
 
 
 class TodoRepository(Protocol):
-    def list(self) -> list[Todo]: ...
+    def list(self, category: str | None = None) -> list[Todo]: ...
     def get(self, todo_id: UUID) -> Todo | None: ...
-    def add(self, text: str, priority: str, today: bool, due_date: date | None = None) -> Todo: ...
+    def add(
+        self,
+        text: str,
+        priority: str,
+        today: bool,
+        due_date: date | None = None,
+        category: str = DEFAULT_CATEGORY,
+    ) -> Todo: ...
     def update(self, todo_id: UUID, changes: dict) -> Todo | None: ...
     def delete(self, todo_id: UUID) -> bool: ...
 
@@ -37,16 +44,26 @@ class InMemoryTodoRepository:
         self._last_time = now
         return now
 
-    def list(self) -> list[Todo]:
+    def list(self, category: str | None = None) -> list[Todo]:
         with self._lock:
+            items = self._items.values()
+            if category is not None:
+                items = [t for t in items if t.category == category]
             # API-02: created_at 오름차순, 같으면 id 오름차순
-            return sorted(self._items.values(), key=lambda t: (t.created_at, str(t.id)))
+            return sorted(items, key=lambda t: (t.created_at, str(t.id)))
 
     def get(self, todo_id: UUID) -> Todo | None:
         with self._lock:
             return self._items.get(todo_id)
 
-    def add(self, text: str, priority: str, today: bool, due_date: date | None = None) -> Todo:
+    def add(
+        self,
+        text: str,
+        priority: str,
+        today: bool,
+        due_date: date | None = None,
+        category: str = DEFAULT_CATEGORY,
+    ) -> Todo:
         with self._lock:
             now = self._now()
             todo = Todo(
@@ -56,6 +73,7 @@ class InMemoryTodoRepository:
                 priority=priority,
                 today=today,
                 due_date=due_date,
+                category=category,
                 created_at=now,
                 updated_at=now,
             )
